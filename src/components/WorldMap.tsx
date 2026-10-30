@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { Compass, Globe2, Minus, Plus, RefreshCw, Table2 } from 'lucide-react'
-import { AttributionControl, Map as MapLibreMap, type ExpressionSpecification, type GeoJSONSource, type MapLayerMouseEvent, type StyleSpecification } from 'maplibre-gl'
+import { AttributionControl, Map as MapLibreMap, setWorkerUrl, type GeoJSONSource, type MapLayerMouseEvent, type StyleSpecification } from 'maplibre-gl'
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import type { FeatureCollection, Point } from 'geojson'
 import {
-  countries, formatObservation, getColor, getCountryName, getScale, missingColor,
+  countries, formatObservation, getCountryName, missingColor,
   type MapMode, type Occurrence, type ResourceDataset,
 } from '@elements-map/core'
+import { getCountryFill } from './mapStyle'
 import 'maplibre-gl/dist/maplibre-gl.css'
+
+setWorkerUrl(workerUrl)
 
 interface Props {
   mode: MapMode
@@ -128,6 +132,21 @@ export default function WorldMap({ mode, dataset, sites, selectedCountry, select
           map!.setFilter('country-hover', ['==', ['get', 'iso3'], ''])
           setHover(null)
         }
+        const closestSite = (event: MapLayerMouseEvent) => {
+          let id: string | undefined
+          let closest = Infinity
+          for (const feature of event.features ?? []) {
+            if (feature.geometry.type !== 'Point' || !feature.properties?.siteId) continue
+            const [lng, lat] = feature.geometry.coordinates
+            const point = map!.project([lng, lat])
+            const distance = Math.hypot(point.x - event.point.x, point.y - event.point.y)
+            if (distance < closest) {
+              closest = distance
+              id = String(feature.properties.siteId)
+            }
+          }
+          return id
+        }
         map.on('mousemove', 'countries-fill', (event: MapLayerMouseEvent) => {
           const current = latest.current
           const code = event.features?.[0]?.properties?.iso3 as string | undefined
@@ -144,7 +163,7 @@ export default function WorldMap({ mode, dataset, sites, selectedCountry, select
         })
         map.on('mousemove', 'site-points', (event: MapLayerMouseEvent) => {
           if (latest.current.mode !== 'occurrences') return
-          const id = event.features?.[0]?.properties?.siteId as string | undefined
+          const id = closestSite(event)
           const site = latest.current.sites.find((item) => item.id === id)
           if (!site) return
           map!.getCanvas().style.cursor = 'pointer'
@@ -152,7 +171,7 @@ export default function WorldMap({ mode, dataset, sites, selectedCountry, select
         })
         map.on('mouseleave', 'site-points', clearHover)
         map.on('click', 'site-points', (event: MapLayerMouseEvent) => {
-          const id = event.features?.[0]?.properties?.siteId as string | undefined
+          const id = closestSite(event)
           if (latest.current.mode === 'occurrences' && id) latest.current.onSite(id)
         })
         map.on('mousemove', 'site-clusters', (event: MapLayerMouseEvent) => {
@@ -190,12 +209,7 @@ export default function WorldMap({ mode, dataset, sites, selectedCountry, select
   useEffect(() => {
     const map = mapRef.current
     if (!map || !ready) return
-    let fill: string | ExpressionSpecification = missingColor
-    if (mode !== 'occurrences' && dataset) {
-      const scale = getScale(dataset)
-      fill = ['match', ['get', 'iso3'], ...dataset.records.flatMap((record) => [record.country, getColor(record.value, scale)]), missingColor] as ExpressionSpecification
-    }
-    map.setPaintProperty('countries-fill', 'fill-color', fill)
+    map.setPaintProperty('countries-fill', 'fill-color', getCountryFill(mode === 'occurrences' ? undefined : dataset))
     map.setFilter('country-hover', ['==', ['get', 'iso3'], ''])
     const source = map.getSource('sites') as GeoJSONSource
     source.setData(mode === 'occurrences' ? {

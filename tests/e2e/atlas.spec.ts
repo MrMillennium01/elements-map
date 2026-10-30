@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { readFile } from 'node:fs/promises'
 
 test('explores an element and switches between all three map modes', async ({ page }) => {
   await page.goto('/')
@@ -60,15 +61,118 @@ test('is keyboard usable and keeps the page inside the mobile viewport', async (
   expect(width.document).toBeLessThanOrEqual(width.viewport)
 })
 
-test('renders the map without depending on external tiles or live APIs', async ({ page }) => {
+test('renders the map without depending on external tiles or live APIs', async ({ page, baseURL }) => {
   const externalRequests: string[] = []
   page.on('request', (request) => {
-    if (/^https?:/.test(request.url()) && !request.url().startsWith('http://127.0.0.1:4173')) {
+    if (/^https?:/.test(request.url()) && new URL(request.url()).origin !== new URL(baseURL!).origin) {
       externalRequests.push(request.url())
     }
   })
   await page.goto('/?view=map&element=Cu&mode=reserves')
   await expect(page.getByTestId('map-canvas')).toHaveAttribute('data-ready', 'true')
   await expect(page.locator('.maplibregl-canvas')).toBeVisible()
+  const mapBounds = await page.locator('.map-canvas-container').boundingBox()
+  expect(mapBounds?.height).toBeGreaterThan(400)
   expect(externalRequests).toEqual([])
+})
+
+test('keeps icon-only controls accessible on small screens', async ({ page }) => {
+  await page.goto('/?view=map&element=Li&mode=reserves')
+  await expect(page.getByRole('button', { name: '', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Ansicht teilen', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Über die Daten', exact: true }).click()
+  await expect(page.getByRole('dialog', { name: 'Daten und Methodik' })).toBeVisible()
+})
+
+test('selects a country from rendered map geometry', async ({ page }) => {
+  await page.goto('/?view=map&element=Li&mode=reserves')
+  await expect(page.getByTestId('map-canvas')).toHaveAttribute('data-ready', 'true')
+  const map = page.locator('.map-canvas-container')
+  await map.scrollIntoViewIfNeeded()
+  const bounds = (await map.boundingBox())!
+  expect(bounds.height).toBeGreaterThan(400)
+  const worldSize = 512 * 2 ** Math.max(0.05, Math.log2(bounds.width / 512) - 0.15)
+  const mercator = (latitude: number) => (1 - Math.log(Math.tan(Math.PI / 4 + latitude * Math.PI / 360)) / Math.PI) / 2
+  const point = {
+    x: bounds.width / 2 + (-95 - 12) / 360 * worldSize,
+    y: bounds.height / 2 + (mercator(55) - mercator(18)) * worldSize,
+  }
+  await expect(async () => {
+    await map.hover({ position: point })
+    await expect(page.locator('.map-hover-card')).toContainText('Kanada')
+  }).toPass()
+  await map.click({ position: point })
+  await expect(page.locator('.selected-country h3')).toHaveText('Kanada')
+  await expect(page.locator('.selected-country')).toContainText('1.600.000 t')
+})
+
+test('selects an actual historical marker after zooming to a site', async ({ page }) => {
+  await page.goto('/?view=map&element=Li&mode=occurrences')
+  await expect(page.getByTestId('map-canvas')).toHaveAttribute('data-ready', 'true')
+  const firstSite = page.locator('.site-list button').first()
+  const name = await firstSite.locator('strong').innerText()
+  await firstSite.click()
+  await expect(page.locator('.selected-site h3')).toHaveText(name)
+  await page.getByRole('button', { name: 'Karte vergrößern', exact: true }).click()
+  await page.getByRole('button', { name: 'Standortauswahl aufheben', exact: true }).click()
+  const map = page.locator('.map-canvas-container')
+  await map.scrollIntoViewIfNeeded()
+  const bounds = (await map.boundingBox())!
+  const point = { x: bounds.width / 2, y: bounds.height / 2 }
+  await expect(async () => {
+    await map.hover({ position: point })
+    await expect(page.locator('.map-hover-card')).toContainText(name)
+  }).toPass()
+  await map.click({ position: point })
+  await expect(page.locator('.selected-site h3')).toHaveText(name)
+  await expect(page.locator('.selected-site a')).toHaveAttribute('href', /^https:\/\/mrdata\.usgs\.gov\/mrds\/show-mrds\.php\?dep_id=\d+$/)
+})
+
+test('retains data access on a map failure and recovers on retry', async ({ page }) => {
+  await page.route('**/data/countries.geojson', (route) => route.fulfill({ status: 503, body: 'Unavailable' }))
+  await page.goto('/?view=map&element=Li&mode=reserves')
+  await expect(page.locator('.map-error')).toBeVisible()
+  await page.getByRole('button', { name: 'Tabelle öffnen', exact: true }).click()
+  await expect(page.getByRole('table', { name: /Länderwerte/ })).toBeVisible()
+  await page.getByRole('button', { name: 'Karte', exact: true }).click()
+  await expect(page.locator('.map-error')).toBeVisible()
+  await page.unroute('**/data/countries.geojson')
+  await page.getByRole('button', { name: 'Erneut versuchen', exact: true }).click()
+  await expect(page.getByTestId('map-canvas')).toHaveAttribute('data-ready', 'true')
+  expect((await page.locator('.map-canvas-container').boundingBox())?.height).toBeGreaterThan(400)
+})
+
+test('exports the selected metric with units, sources and confidential values preserved', async ({ page }) => {
+  await page.goto('/?view=map&element=Li&mode=production')
+  await page.getByRole('button', { name: 'Datentabelle', exact: true }).click()
+  const downloadEvent = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'CSV herunterladen', exact: true }).click()
+  const download = await downloadEvent
+  expect(download.suggestedFilename()).toBe('elementa-Li-production-2025.csv')
+  const csv = await readFile((await download.path())!, 'utf8')
+  expect(csv).toContain('"Enthaltenes Lithium"')
+  expect(csv).toContain('https://pubs.usgs.gov/periodicals/mcs2026/mcs2026-lithium.pdf')
+  expect(csv.split('\r\n').find((line) => line.includes('"USA"'))).toContain(',"","t","Vertraulich"')
+  expect(csv.split('\r\n').find((line) => line.includes('"AUS"'))).toContain(',92000,"t","Schätzung"')
+})
+
+test('shares the current element and mode and offers a fallback when clipboard access is denied', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: async (text: string) => { sessionStorage.setItem('test-shared-url', text) } },
+    })
+  })
+  await page.goto('/?view=map&element=Cu&mode=production')
+  await page.getByRole('button', { name: 'Ansicht teilen', exact: true }).click()
+  expect(await page.evaluate(() => sessionStorage.getItem('test-shared-url'))).toBe(page.url())
+  await expect(page.getByRole('status').filter({ hasText: 'Link zur aktuellen Ansicht kopiert' })).toBeVisible()
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: async () => { throw new Error('Clipboard access denied') } },
+    })
+  })
+  await page.getByRole('button', { name: 'Vorkommen', exact: true }).click()
+  await page.getByRole('button', { name: 'Ansicht teilen', exact: true }).click()
+  await expect(page.getByRole('textbox', { name: 'Link zum Kopieren' })).toHaveValue(page.url())
 })

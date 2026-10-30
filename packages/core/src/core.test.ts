@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   categories,
+  countries,
   createCsv,
   datasets,
   elements,
@@ -49,6 +50,16 @@ describe('periodic table', () => {
 })
 
 describe('resource data integrity', () => {
+  it('provides finite country centers in longitude-latitude order', () => {
+    expect(Object.keys(countries).length).toBeGreaterThan(170)
+    for (const country of Object.values(countries)) {
+      expect(country.center).toHaveLength(2)
+      expect(country.center.every(Number.isFinite)).toBe(true)
+      expect(Math.abs(country.center[0])).toBeLessThanOrEqual(180)
+      expect(Math.abs(country.center[1])).toBeLessThanOrEqual(90)
+    }
+  })
+
   it('keeps production, reserves and occurrence records as distinct datasets', () => {
     expect(supportedSymbols).toHaveLength(12)
     for (const symbol of supportedSymbols) {
@@ -58,6 +69,11 @@ describe('resource data integrity', () => {
     }
     expect(getDataset('He', 'reserves')).toBeUndefined()
     expect(getOccurrences('He')).toEqual([])
+  })
+
+  it('lists historical sites alphabetically rather than by source-record order', () => {
+    const names = getOccurrences('Li').map((site) => site.name)
+    expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b, 'de')))
   })
 
   it('normalizes source units without confusing bauxite with aluminium metal', () => {
@@ -128,6 +144,8 @@ describe('quantitative map semantics', () => {
     expect(getWorldShare(getDataset('Ni', 'reserves')!, 62_000_000)).toBeNull()
     expect(getWorldShare(getDataset('Li', 'production')!, 92_000)).toBeNull()
     expect(getWorldShare(getDataset('Cu', 'production')!, 5_300_000)).toBeCloseTo(23.043, 2)
+    expect(getDataset('Li', 'production')!.note).toContain('vertrauliche US-Produktion')
+    expect(getDataset('Li', 'reserves')!.note).not.toContain('vertrauliche US-Produktion')
   })
 
   it('formats zero, unknown and large quantities without changing the stored value', () => {
@@ -155,7 +173,7 @@ describe('shareable state and exports', () => {
   })
 
   it('escapes CSV quotes and spreadsheet formulas', () => {
-    const csv = createCsv(['Name', 'Wert'], [['=SUM(A1:A2)', 42], ['Ein \"Name\"', 0]])
+    const csv = createCsv(['Name', 'Wert'], [['=SUM(A1:A2)', 42], ['Ein "Name"', 0]])
     expect(csv).toContain(`"'=SUM(A1:A2)"`)
     expect(csv).toContain('"Ein ""Name"""')
     expect(csv).toContain(',0')

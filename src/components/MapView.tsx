@@ -181,7 +181,7 @@ export function MapView({ state, element, onNavigate, onElementInfo, onSources }
           })}
         </div>
         <div className="share-control">
-          <button type="button" className={`secondary-button share-button ${shareState === 'copied' ? 'copied' : ''}`} onClick={share}>{shareState === 'copied' ? <Check size={16} /> : <Share2 size={16} />}<span>{shareState === 'copied' ? 'Kopiert' : 'Teilen'}</span></button>
+          <button type="button" aria-label="Ansicht teilen" className={`secondary-button share-button ${shareState === 'copied' ? 'copied' : ''}`} onClick={share}>{shareState === 'copied' ? <Check size={16} /> : <Share2 size={16} />}<span>{shareState === 'copied' ? 'Kopiert' : 'Teilen'}</span></button>
           {shareState === 'manual' && <div className="share-fallback"><label>Link zum Kopieren<input aria-label="Link zum Kopieren" readOnly value={window.location.href} onFocus={(event) => event.target.select()} autoFocus /></label></div>}
           <span className="sr-only" role="status">{shareState === 'copied' ? 'Link zur aktuellen Ansicht kopiert' : ''}</span>
         </div>

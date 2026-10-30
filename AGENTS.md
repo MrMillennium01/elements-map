@@ -14,6 +14,7 @@
 - Production build: `npm run build`.
 - Combined checks: `npm run verify`.
 - Browser tests: `npm run test:e2e`. Playwright starts its own Vite server on port 4173. Install Chromium with `npx playwright install chromium` when needed.
+- Production browser tests: build first, then run `npm run test:e2e -- --workers=2` with `PLAYWRIGHT_PREVIEW=1`. The test server runs the built site on port 4174.
 
 ## Architecture and data
 
@@ -29,18 +30,15 @@
 - `scripts/import-data.mjs` imports PubChem, country geometry and MRDS snapshots. `data/provenance.json` records sources, hashes and selection rules. Raw downloads are cached under ignored `data/raw/`.
 - In this environment Node downloads need the existing environment proxy: `node --use-env-proxy scripts/import-data.mjs`. Python urllib downloads from USGS needed an explicit `User-Agent`.
 
-## Paused checkpoint — 2026-10-30
+## Map integration and verification
 
-The user requested saving the work before closing their laptop. Implementation is a work in progress, not a verified release.
-
-- All 15 core unit tests passed.
-- npm installation reported no known vulnerabilities.
-- Playwright Chromium was installed.
-- The development server was stopped before saving.
-- Type checking currently reports two errors:
-  - `packages/core/src/index.ts`: the imported country centers are inferred as `number[]`, but the exported model requires `[number, number]`. Construct typed tuples rather than masking the mismatch.
-  - `src/components/WorldMap.tsx`: the dynamically constructed MapLibre `match` expression does not prove the required first label/output pair to TypeScript. Build a properly typed nonempty expression, with a fallback for an empty dataset.
-- Lint currently reports two unnecessary escaped double quotes in the CSV fixture in `packages/core/src/core.test.ts`.
-- Browser/E2E tests and the production build have not yet been run. Visual checks on desktop/mobile, real map interactions, modal focus behavior and WebGL failure fallback still need verification.
-- E2E coverage has been written in `tests/e2e/atlas.spec.ts`, including all three map modes, deep links/history, unavailable data, keyboard use, mobile overflow and absence of external runtime requests.
+- MapLibre 6 requires explicit worker configuration with Vite: import `maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url` and call `setWorkerUrl` before creating a map. Plain `?url` does not bundle the worker's dependencies.
+- The map container needs explicit `width: 100%; height: 100%`. MapLibre's unlayered CSS overrides the position set inside the application's CSS layers; relying on absolute positioning alone results in a zero-height clipped map.
+- Browser tests must assert the map container dimensions and interact with actual rendered countries and markers, not only check that a canvas exists.
+- Nearby MRDS sites can overlap at low zoom. Hover and click handlers select the closest rendered point, not the first feature returned by the renderer.
+- Fontsource 5.3 exports the package root stylesheet; the installed packages do not contain `latin.css`.
+- `tests/e2e/atlas.spec.ts` runs on desktop Chromium and an emulated Pixel 7. Coverage includes all three map modes, real country/marker selection, deep links/history, unavailable data, keyboard use, mobile overflow, accessible controls, CSV downloads, clipboard fallback, failed map requests and retry.
+- Keep the browser tests against both the dev server and production assets to catch worker/asset bundling regressions.
+- `npm run verify` passes: lint, 20 unit tests, type checking and production build.
+- All 22 browser tests pass against both development and production servers.
 - No deployment has been made. No cloud environment blueprint has been created.

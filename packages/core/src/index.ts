@@ -86,7 +86,10 @@ export const elements: ChemicalElement[] = rawElements.map((raw) => {
 })
 
 export const occurrences = rawOccurrences as Occurrence[]
-export const countries = rawCountries as Record<string, { name: string; center: [number, number] }>
+export const countries = Object.fromEntries(Object.entries(rawCountries).map(([code, country]) => {
+  const center: [number, number] = [country.center[0], country.center[1]]
+  return [code, { name: country.name, center }] as const
+}))
 const supported = new Set(supportedSymbols)
 const normalize = (text: string) => text.trim().toLocaleLowerCase('de').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replaceAll('ß', 'ss')
 
@@ -114,6 +117,7 @@ export function getDataset(symbol: string, metric: QuantitativeMetric) {
 
 export function getOccurrences(symbol: string) {
   return occurrences.filter((site) => site.elements.includes(symbol))
+    .sort((a, b) => a.name.localeCompare(b.name, 'de') || a.id.localeCompare(b.id))
 }
 
 export function getCountryName(code: string | null) {

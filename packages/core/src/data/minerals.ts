@@ -26,7 +26,7 @@ export const commodities: Commodity[] = [
     symbol: 'Li', slug: 'lithium', commodity: 'Lithium', basis: 'Enthaltenes Lithium',
     productionTotal: 290_000, reserveTotal: 37_000_000, productionOther: 0, reserveOther: 2_400_000,
     excludesWithheld: true,
-    note: 'Lithiumgehalt, nicht Lithiumcarbonat-Äquivalent. Die weltweite Förderung schließt die vertrauliche US-Produktion aus.',
+    note: 'Lithiumgehalt, nicht Lithiumcarbonat-Äquivalent.',
     rows: [
       ['USA', 'W', 4_400_000], ['ARG', 23_000, 4_400_000],
       ['AUS', 92_000, 8_400_000, 'USGS-Tabellenwert. JORC-konforme oder äquivalente Reserven: 5.100.000 t.'],
@@ -39,7 +39,7 @@ export const commodities: Commodity[] = [
     productionMultiplier: 1000, reserveMultiplier: 1000,
     productionTotal: 440_000, reserveTotal: 29_000_000, productionOther: 8_000, reserveOther: 5_300_000,
     excludesWithheld: true,
-    note: 'Die Karte zeigt Bauxit als Ausgangsrohstoff für Aluminium. Die Werte sind Erzgewicht (trocken), keine Mengen reinen Aluminiums. Die weltweite Förderung schließt die vertrauliche US-Produktion aus.',
+    note: 'Die Karte zeigt Bauxit als Ausgangsrohstoff für Aluminium. Die Werte sind Erzgewicht (trocken), keine Mengen reinen Aluminiums.',
     rows: [
       ['USA', 'W', 20_000],
       ['AUS', 97_000, 3_700_000, 'USGS-Tabellenwert. JORC-konforme oder äquivalente Bauxitreserven: 1,7 Mrd. t.'],
@@ -191,6 +191,7 @@ function buildDataset(commodity: Commodity, metric: QuantitativeMetric): Resourc
         ? 'Minenförderung im Kalenderjahr 2025; vorläufige USGS-Schätzungen. Weltwerte sind gerundet.'
         : 'Reserveangaben der USGS-Ausgabe 2026. Länderspezifische Klassifikationen können abweichen, insbesondere bei Australien. Bekannte Reserven sind keine Schätzung aller geologisch vorhandenen Mengen.',
       commodity.note,
+      production && commodity.excludesWithheld ? 'Die weltweite Förderung schließt die vertrauliche US-Produktion aus.' : undefined,
     ].filter(Boolean).join(' '),
     records,
     worldTotal: {

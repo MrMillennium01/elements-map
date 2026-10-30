@@ -40,7 +40,7 @@ export default function App() {
               <Globe2 size={17} /> Weltkarte
             </button>
           </nav>
-          <button type="button" className="header-about" onClick={() => setSourcesOpen(true)}><CircleHelp size={17} /><span>Über die Daten</span></button>
+          <button type="button" className="header-about" aria-label="Über die Daten" onClick={() => setSourcesOpen(true)}><CircleHelp size={17} /><span>Über die Daten</span></button>
         </div>
       </header>
       <main id="main-content" className="main-content" tabIndex={-1}>
