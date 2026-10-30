@@ -1,0 +1,75 @@
+{
+  "elements": {
+    "url": "https://pubchem.ncbi.nlm.nih.gov/rest/pug/periodictable/JSON",
+    "sha256": "ff0f75976583b8a6493b18d0b42e83e1b68bd6e112b45d33578d98494ed5d321",
+    "importedAt": "2026-10-30T11:42:01.879Z",
+    "records": 118
+  },
+  "geography": {
+    "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson",
+    "sha256": "6866c877d39cba9c357620878839b336d569f8c662d3cfab4cb1dbe2d39c977f",
+    "importedAt": "2026-10-30T11:42:08.467Z",
+    "license": "Public domain, Natural Earth",
+    "scale": "1:110m"
+  },
+  "occurrences": {
+    "url": "https://energy.usgs.gov/arcgis/rest/services/Hosted/Mineral_Resource_Data_System/FeatureServer/0/query",
+    "importedAt": "2026-10-30T11:42:23.831Z",
+    "sourceStatus": "MRDS; systematic updates ceased in 2011",
+    "selection": "Quality A/B; excludes plants and unnamed records; at most 2 sites per 5-degree cell per element. No inference about deposit size or current operating status.",
+    "countryAssignment": "Approximate spatial join against Natural Earth 1:110m boundaries; null if not matched.",
+    "counts": {
+      "Li": {
+        "matching": 158,
+        "selected": 36
+      },
+      "Al": {
+        "matching": 352,
+        "selected": 115
+      },
+      "Mn": {
+        "matching": 1296,
+        "selected": 138
+      },
+      "Fe": {
+        "matching": 2633,
+        "selected": 244
+      },
+      "Co": {
+        "matching": 510,
+        "selected": 169
+      },
+      "Ni": {
+        "matching": 603,
+        "selected": 181
+      },
+      "Cu": {
+        "matching": 10385,
+        "selected": 392
+      },
+      "Zn": {
+        "matching": 6381,
+        "selected": 339
+      },
+      "Ag": {
+        "matching": 11121,
+        "selected": 377
+      },
+      "Sn": {
+        "matching": 719,
+        "selected": 125
+      },
+      "W": {
+        "matching": 1773,
+        "selected": 154
+      },
+      "Au": {
+        "matching": 12191,
+        "selected": 358
+      }
+    },
+    "records": 1434,
+    "query": "grade IN ('A','B') AND dev_stat <> 'Plant' AND (code_list LIKE '% LI%' OR code_list LIKE '% AL%' OR code_list LIKE '% MN%' OR code_list LIKE '% FE%' OR code_list LIKE '% CO%' OR code_list LIKE '% NI%' OR code_list LIKE '% CU%' OR code_list LIKE '% ZN%' OR code_list LIKE '% AG%' OR code_list LIKE '% SN%' OR code_list LIKE '% W%' OR code_list LIKE '% AU%')",
+    "sha256": "5f0b0dd076baf8333cc25738a9a5bec402973ebceb5f7fc96472b5a7869d9ebf"
+  }
+}
